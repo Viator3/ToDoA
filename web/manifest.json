@@ -1,6 +1,6 @@
 {
-    "name": "flutter_app_todoa",
-    "short_name": "flutter_app_todoa",
+    "name": "new_todo_app",
+    "short_name": "new_todo_app",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

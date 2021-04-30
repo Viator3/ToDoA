@@ -1,18 +1,28 @@
+import 'package:animated_text_kit/animated_text_kit.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_app_todoa/model/item_data.dart';
-import 'package:flutter_app_todoa/widgets/tile_item.dart';
+import 'package:new_todo_app/components/bottom_button.dart';
+import 'package:new_todo_app/constants.dart';
+import 'package:new_todo_app/data/firestore_repository.dart';
+import 'package:new_todo_app/screens/add_task_page.dart';
+import 'package:new_todo_app/widgets/tile_item.dart';
+import 'package:provider/provider.dart';
+
+
 
 class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          _buildTopBar(context),
-          _buildBodyContent(),
-          _buildBottomBar(context),
-        ],
+    return SafeArea(
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: Column(
+          children: [
+            _buildTopBar(context),
+            _buildBodyContent(context),
+            _buildBottomBar(context)
+          ],
+        ),
       ),
     );
   }
@@ -44,148 +54,78 @@ class HomePage extends StatelessWidget {
             ),
           ),
         ),
+        Positioned(
+          left: 20,
+          top: 34,
+          child: SizedBox(
+            width: 250.0,
+            child: AnimatedTextKit(
+              animatedTexts: [
+                ColorizeAnimatedText(
+                  'TODOa',
+                  textStyle: kColorizeTextStyle,
+                  colors: kColorizeColors,
+                  speed: const Duration(seconds: 3),
+                ),
+              ],
+              isRepeatingAnimation: false,
+            ),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildBodyContent() {
-    List<ItemData> items = [
-      ItemData(
-        isChecked: true,
-        image: 'assets/avatar_holder.png',
-        title: 'Item Text 0',
-      ),
-      ItemData(
-        isChecked: false,
-        image: 'assets/avatar_holder.png',
-        title: 'Item Text 1',
-      ),
-      ItemData(
-        isChecked: true,
-        image: null,
-        title: 'Item Text 2',
-      ),
-      ItemData(
-        isChecked: true,
-        image: 'assets/avatar_holder.png',
-        title: 'Item Text 0',
-      ),
-      ItemData(
-        isChecked: false,
-        image: 'assets/avatar_holder.png',
-        title: 'Item Text 1',
-      ),
-      ItemData(
-        isChecked: true,
-        image: null,
-        title: 'Item Text 2',
-      ),
-      ItemData(
-        isChecked: false,
-        image: 'assets/avatar_holder.png',
-        title: 'Item Text 3',
-      )
-    ];
+  Widget _buildBodyContent(BuildContext context) {
+    return Expanded(
+      child: StreamBuilder(
+        stream:
+        Provider.of<FirestoreRepository>(context, listen: false).steam(),
+        builder: (BuildContext context, AsyncSnapshot<QuerySnapshot> snapshot) {
+          List<TileItem> widgets = [];
+          if (snapshot.hasData) {
+            snapshot.data!.docs.forEach((QueryDocumentSnapshot query) {
+              final id = query.id;
+              Map<String, dynamic> data = query.data();
 
-    return Container(
-      width: double.infinity,
-      height: 560,
-      child: ListView.builder(
-        itemCount: items.length,
-        itemBuilder: (context, index) {
-          return ListTile(
-            title: TileItem(
-              isChecked: items[index].isChecked,
-              title: items[index].title,
-              image: items[index].image,
-            ),
+              final bool isSelected = data['isSelected'];
+              final title = data['todo'];
+
+              widgets.add(TileItem(
+                isChecked: isSelected,
+                title: title,
+                image: null,
+                onCheckedChanges: (bool isChecked) {
+                  Provider.of<FirestoreRepository>(context, listen: false)
+                      .update(id, isChecked);
+                },
+              ));
+            });
+          }
+
+          return ListView(
+            children: widgets,
           );
         },
       ),
     );
   }
 
-  Container _buildBottomBar(BuildContext context) {
-    return Container(
-      child: TextButton(
-        child: Text(
-          'Add items',
-          textAlign: TextAlign.center,
-        ),
-        onPressed: () {
-          _navigateAndDisplaySelection(context);
-        },
-      ),
-      color: Colors.yellow,
-      width: double.infinity, // MediaQuery.of(context).size.width
-      height: 70,
-    );
-  }
-
-  _navigateAndDisplaySelection(BuildContext context) async {
-    // Navigator.push returns a Future that completes after calling
-    // Navigator.pop on the Selection Screen.
-    final String result = await Navigator.push(
-      context,
-      // Create the SelectionScreen in the next step.
-      MaterialPageRoute(builder: (context) => SecondPage(args: 'Add items')),
-    );
-
-    ScaffoldMessenger.of(context)
-      ..removeCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text("$result")));
-  }
-
-}
-
-
-class SecondPage extends StatefulWidget {
-  final String args;
-
-  SecondPage({required this.args});
-
-  @override
-  _SecondPageState createState() => _SecondPageState();
-}
-
-class _SecondPageState extends State<SecondPage> {
-  String _name = '';
-
-  _changeName(String text) {
-    setState(() {
-      _name = text;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-
-    return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        title: Text('${widget.args}'),
-      ),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          TextField(
-            style: TextStyle(fontSize: 22),
-            decoration: InputDecoration(
-                border: InputBorder.none,
-                hintText: "Hint text",
-                fillColor: Colors.black12,
-                filled: true),
-            onSubmitted: _changeName,
-            onChanged: _changeName,
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context, _name);
+  Widget _buildBottomBar(BuildContext context) {
+    return BottomButton(
+        title: 'Add Item',
+        onTap: () {
+          showModalBottomSheet<void>(
+            context: context,
+            isScrollControlled: true,
+            builder: (BuildContext context) {
+              return Container(
+                height: 220,
+                color: Color(0xff757575),
+                child: AddTaskPage(),
+              );
             },
-            child: Text('+'),
-          ),
-        ],
-      ),
-    );
+          );
+        });
   }
 }

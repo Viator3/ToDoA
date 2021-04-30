@@ -1,4 +1,4 @@
-# flutter_app_todoa
+# new_todo_app
 
 A new Flutter application.
 
